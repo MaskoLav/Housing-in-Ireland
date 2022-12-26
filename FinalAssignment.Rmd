@@ -1,0 +1,480 @@
+---
+title: "Final Assignment"
+author: "Filip Masic_22208050"
+date: "2022-12-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1 - Analysis of Housing Market in Ireland
+
+#### Introduction
+
+For the purpose of this assignment,Question 1 will answer some questions regarding the prices of houses in Ireland. The analysis will show the relationship and answer questions about the prices of second hand and new houses in Ireland while also looking into the amount of new houses being registered. 
+
+This analysis will show:
+
+* A relationship between the price of new houses vs the price of second hand houses through years.
+* A relationship between the price of new houses vs the amount of new houses built.
+* If the houses in Dublin are the most expensive, and if there is a sufficient amount of new houses being built compared to other counties.
+
+The data was combined from three different data-sets where different counties will be the categories as well as the years in which the data was recorded. All three of the data-sets were published by: 'Department of Housing, Local Government, and Heritage'.
+
+To begin the analysis, the data-sets are imported, combined and tidied up so the categorical variables are the same.
+The main difficulty with standardizing this data was the encoding used by the csv file. This was overcome by importing a library "stringi" to analyze the encoding of the data after some modifications were made to the csv file. The encoding issue would return 'NA' values when values within the data-set were converted to int with 'as.numeric' command. 
+Additionally, the data was tidied up where the data-set was reduced to describe only a select number of counties. The counties selected were: Dublin, Cork, Galway,  Limerick and Waterford. A column representing the values on a National level was also included. 
+When merging the data-sets, the data-set containing values for New houses was given a suffix '.x' while the Second hand houses were given a suffix or '.y'. The amount of new houses built remained without and changes to names. 
+
+The data-set will be analyzed using graphical summaries ('ggplot2'), tables('psych') and numerical summaries('Hmisc' and 'tidyverse').
+Additionally, the numerical summaries are shown in the table below:
+
+```{r standardizing datasets}
+
+library("dplyr")
+library("stringi")
+library("ggplot2")
+library("tidyverse")
+library("stats")
+library("Hmisc")
+library("tibble")
+
+# Importing all data frames, setting the correct encoding and creating a data.frame
+
+hnew = data.frame(x = read.csv(file("C:\\Users\\filip\\Downloads\\form_41a-price-new-property-area-by_year_2.csv",encoding="UTF-8")))
+hsh  = data.frame(x = read.csv(file("C:\\Users\\filip\\Downloads\\form_41c-price-sh-property-area-by_year_1.csv",encoding="UTF-8")))
+hreg = (x = read.csv(file("C:\\Users\\filip\\Downloads\\house_registrations_by_area.csv",encoding="UTF-8")))
+
+# Tidying up hnew data.frame and eliminating redundant rows and columns
+colnames(hnew) <- hnew[1,]
+hnew <- hnew[,c(-8:-14)]
+hnew <- hnew[-1:-9,]
+colnames(hnew)[1]<-"Year:"
+rownames(hnew) <- 1:nrow(hnew)
+
+# Tidying up hsh data.frame and eliminating redundant rows and columns
+colnames(hsh) <- hsh[1,]
+hsh <- hsh[,c(-8:-14)]
+hsh <- hsh[-1:-9,]
+colnames(hsh)[1]<-"Year:"
+rownames(hsh) <- 1:nrow(hsh)
+
+# Tidying up hreg data.frame and eliminating redundant rows and columns
+hreg = data.frame(t(hreg))
+colnames(hreg) <- hreg[1,]
+hreg <- hreg[-1,]
+hreg <- hreg[,-2]
+hreg <- head(hreg,-4)
+rownames(hreg) <- 1:nrow(hreg)
+# Getting rid of the data containing quarterly entries and only keeping the total yearly entries in order to have the same data standard
+hreg <- hreg[-c(27:30,32:35,37:48,50:61,63:74,76:87,89:100,102:113,115:126,128:139,141:152,154:165,167,168:176),]
+rownames(hreg) <- 1:nrow(hreg)
+hreg <- hreg[,-c(2:4,6,9:13,15:23,25:27)]
+rownames(hreg) <- 1:nrow(hreg)
+t = 2004
+# Appending year variables at the appropriate rows
+for (i in 27:39){
+  hreg[i,1]=t
+  t=t+1
+}
+hreg <- head(hreg,-1)
+
+# Converting all data.frames from type char to type int. Also, using regex to set a limit on what characters can be used. This was used in order to eliminate 'NA' value problem
+invisible(gsub('[^x20-\x7E]','',hnew))
+hnew <- as.data.frame(sapply(hnew,as.numeric))
+
+invisible(gsub('[^x20-\x7E]','',hsh))
+hsh <- as.data.frame(sapply(hsh,as.numeric))
+
+invisible(gsub('[^x20-\x7E]','',hreg))
+hreg <- as.data.frame(sapply(hreg,as.numeric))
+
+# Merge the data.frames
+hcomb <- merge(hnew,hsh,by='Year:')
+hcomb <- merge(hcomb,hreg,by='Year:')
+
+# Using describe() %>% to display data summary as a table in the html file. library('Hmisc')
+describe(hcomb) %>% html()
+
+```
+
+
+ 
+#### Prices of New Houses vs Prices of Second Hand houses
+
+```{r nah vs thb}
+
+
+ggplot()+
+  geom_point(data=hcomb,mapping=aes(x=`Year:`, y = National.x, colour = 'steelblue'))+
+  geom_point(data=hcomb,mapping=aes(x=`Year:`, y = National.y, colour = 'coral2'))+
+  scale_colour_discrete(name="House type",labels = c("Second hand house","New house"))+
+  labs(title = "National price of Second hand houses and New house with respect to time",
+       x = "Year",
+       y = "National price of houses")
+
+
+  
+
+
+```
+
+
+
+#### Price of new houses vs the amount of houses built
+
+For the purpose of this section, a plethora of graphical summaries were made in order to show the relationship between the variables on a county level as well as on a national level. The graph depicting values on a national level used the total amount of houses built and the average price of a house. It is important to graph the counties individually to spot if certain counties were left behind in development compared to the capital. 
+
+To compare such values, the data-set was standardized.
+
+The graph below shows between 1980 and 2004, the ratio between new house prices and the amount of houses built was approximately consistent. With the occurrence of the events leading up to the financial crisis in 2008, this number did not keep the consistency. This ultimately resulted in the price of new houses skyrocketing while the construction of new houses reached all time lows leading up to 2015.
+
+```{r nhp vs hbt}
+
+# Standardizing data with 0 mean
+xcombstd <- as.data.frame(scale(hcomb[2:19]))
+xcombstd['Year:']<-hcomb['Year:']
+
+# Plotting comparissons for all variables as stated above
+ggplot()+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Dublin .x`, colour = 'steelblue'))+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Dublin `, colour = 'coral2'))+
+  scale_colour_discrete(labels = c("New houses built","New house price"))+
+  labs(title = "Comparisson of the scaled values for the amount of \n\ houses built and their respective average prices in Dublin",
+       x = "Year",
+       y = "House metrics")
+
+ggplot()+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Cork.x`, colour = 'steelblue'))+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Cork`, colour = 'coral2'))+
+  scale_colour_discrete(labels = c("New houses built","New house price"))+
+  labs(title = "Comparisson of the scaled values for the amount of \n\ houses built and their respective average prices in Cork",
+       x = "Year",
+       y = "House metrics")
+
+ggplot()+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Galway.x`, colour = 'steelblue'))+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Galway`, colour = 'coral2'))+
+  scale_colour_discrete(labels = c("New houses built","New house price"))+
+  labs(title = "Comparisson of the scaled values for the amount of \n\ houses built and their respective average prices in Galway",
+       x = "Year",
+       y = "House metrics")
+  
+ggplot()+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Limerick.x`, colour = 'steelblue'))+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Limerick`, colour = 'coral2'))+
+  scale_colour_discrete(labels = c("New houses built","New house price"))+
+  labs(title = "Comparisson of the scaled values for the amount of \n\ houses built and their respective average prices in Limerick",
+       x = "Year",
+       y = "House metrics")
+
+ggplot()+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Waterford.x`, colour = 'steelblue'))+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `Waterford`, colour = 'coral2'))+
+  scale_colour_discrete(labels = c("New houses built","New house price"))+
+  labs(title = "Comparisson of the scaled values for the amount of \n\ houses built and their respective average prices in Waterford",
+       x = "Year",
+       y = "House metrics")
+
+ggplot()+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `National.x`, colour = 'steelblue'))+
+  geom_point(data=xcombstd,mapping=aes(x=`Year:`, y = `TOTALS`, colour = 'coral2'))+
+  scale_colour_discrete(labels = c("New houses built","New house price"))+
+  labs(title = "Comparisson of the scaled values for the amount of \n\ total houses built and their respective average prices in Ireland",
+       x = "Year",
+       y = "House metrics")
+
+```
+
+
+
+#### Analysis of housing in Dublin
+
+The first analysis will compare the mean price of a new house in Dublin to other counties as well as on a national level. This graph will show the mean price of new houses from the  year 1978 to 2015. It is important to note that this time period might not show accurate proportion estimates in today's reality. The objective of this graph is to show historical data and its comparison. 
+
+From the graph below it is evident that the mean price of new houses in Dublin is higher than other counties as well as on a national level. 
+
+``` {r ahd}
+
+# Creating and tidying up the dataframe to only display the relevant information
+hcombt = hcomb[,c(-1,-8:-19)]
+mdf <- as.data.frame(colMeans(hcombt[sapply(hcombt,is.numeric)]))
+colnames(mdf)<-c('Mean')
+mdf<-rownames_to_column(mdf)
+
+ggplot(data = mdf,aes(x=rowname, y=Mean))+
+  geom_bar(stat="identity", fill="steelblue")+
+  labs(title="Mean New house price in different counties and on a national level",
+       x = 'Area',
+       y = 'Price')
+
+```
+
+
+This section will demonstrate the amount of new houses being built in different counties. This section will test if the amount of new houses being built in Dublin is proportional to the percentage of population residing in Dublin. The population of county Dublin was approximately 1.4 million in 2019 while the population of Ireland was close to 5 million in 2019.This would indicate that around 28% of Irish residents reside in county Dublin. The following graphs were made to test the statement above:
+
+``` {r nhbc}
+
+# Creating and tidying up the dataframe to only display the relevant information
+hregt <- hcomb[,-1:-13]
+rdf <- as.data.frame(colMeans(hregt[sapply(hregt,is.numeric)]))
+colnames(rdf)<-c('Mean')
+rdf<-rownames_to_column(rdf)
+tvec<-c()
+
+# Creating a data.frame that holds mean ratios as the values
+for (i in 1:5){
+  tempr = rdf[i,2]/rdf[6,2]
+  tvec <- append(tvec,tempr)
+  
+}
+tvec<-append(tvec,1)
+
+rdf['ratios']<-tvec
+
+ggplot(data=rdf,aes(x=rowname,y=ratios))+
+  geom_bar(stat='identity',fill='coral2')+
+  labs(title="Comparison of ratios of the newly built houses in different areas against the total",
+       x = "Area",
+       y = "Ratio of the amount of newly built houses against the total")
+
+
+
+
+
+```
+
+
+By observing the graph above, it is evident that the mean of the total houses built in Dublin is 32.8% of the total houses built. This would indicate that the proportion of houses built in Dublin is in line with the population proportion in Ireland. Similarly as the previous assumption, the housing data has to be taken with a grain of salt as many different geopolitical and economic factors influence the housing market in both the price and the construction. The sample of 40 years taken in this assignment is too large to derive any influential conclusions. 
+Taking that into account, by just observing the overall historical data, it can be concluded that, on average, the amount of houses built is in proportion with the population proportion in Ireland.
+
+
+#### Conclusion 
+
+To conclude, this analysis found answers to the questions asked at the beginning of the analysis.
+
+It showed the relationship between the price of new houses vs the price of second hand houses on a national level. The relationship seemed to show that new houses started to cost more, on average, only around 2013. 
+
+Additionally, it showed that the proportion of newly built houses followed a similar pattern as the increase in prices of the new houses. This statement held true until the economic boom in the early 2000s, and the following financial crisis of 2008. 
+
+Lastly, it showed that, on average throughout 40 years, the amount of new houses built in county Dublin is in the same proportion as the population that lives in county Dublin (approx. around 30%).
+
+This analysis could be improved and it could net better inferences and better conclusions if the sample size of years was reduced to 5 years and studied on a quarterly basis. By studying the housing market behaviour in such long periods of times does not account for major geopolitical and economic events such as the financial crisis. Observing the data in shorter time periods would net better results.
+
+
+## Question 2 - R-Package - 'tibble'
+
+For the purpose of this assignment, 'tibble' will be the demonstrated R-package.
+
+The tibble package handles data structures called "tibbles". Tibble is a name given to a special case of a S3 data.frame. The developers of 'tibble' describe the need for tibbles as being "developed in response to lessons learned over many years of data analysis with data frames." Key points of the tibble compared to a data frame are that the print method and, the subsetting is different than that of a data.frame. The tibble print method shows only the first 10 rows of the data and all collumns that can fit on the screen. Additionally, it shows the column type by utilizing str().
+
+To demonstrate the operation of the R-package, the following functions were used:
+
+
+#### tibble()
+
+tibble() takes in values, for example:
+
+```{r tib}
+
+# Creating a tibble with 3 columns and printing it
+tibble(letters=letters,order=1:26,ranZ = sample(50,26))
+
+# When defining column values, the column value can be a function of other column values:
+tibble(x = 1:10, y = 2, z = x^2+y)
+
+```
+
+
+####  is_tibble() and as_tibble()
+ Function that checks if a data structure is a tibble or not. Returns True or False.
+ 
+``` {r itat}
+is_tibble(hnew)
+# Function that converts a data.frame to a tibble
+is_tibble(as_tibble(hnew))
+
+
+```
+
+#### glimpse()
+
+Function that displays the tibble in horizontal form where the 'row' indices are column tags and all the corresponding values are column entries.
+
+```{r glmps}
+glimpse(hnew)
+```
+
+#### add_row()
+
+A function that adds a row with values specified for each column.
+The position of the newly inserted column can be specified.
+```{r addr}
+dft <- tibble(x=1:5,y=1:5)
+dft %>% add_row(x=100, y = 200 )
+
+
+dft%>% add_row(x = 3:4, y= 0,.before=2)
+
+
+```
+
+
+#### add_column()
+
+ Similarly to add_row(), columns can be addded
+ 
+```{r addc}
+dft%>% add_column(z=1:5,w=0)
+
+```
+
+#### has_rownames() and has_name()
+
+Checks if the selected tibble has row indices and returns either True or False
+
+``` {r hrn}
+has_rownames(dft)
+
+has_name(dft,'x')
+
+```
+
+
+#### Conclusion
+
+These are just some of the functions available with the 'tibble' package in R. As seen above, tibble indeed is a package that offers a lot of unique functions that make manipulating and editing data.frames (or tibbles) much easier and more convenient.
+
+
+
+## Question 3 - Functions
+
+#### Print Method
+
+A new data.frame was created called 'hnews3' that was assigned a class 'housing'. A print function was created for this S3 class where the output of the function would output the rows of the equivalent data.frame in a row form. This output can be seen below the code where the custom print function was compared to a data.frame print function.
+
+```{r s3print}
+
+# Create a new data.frame
+hnews3 <- hnew
+
+# Assign the object a 'housing' class
+class(hnews3)<- "housing"
+
+# Print method for .housing class
+print.housing <- function(df){
+  
+  s<-c()
+  v<-c()
+  
+  # A list of lists was created where each Column in the original data.frame was a list. The for function iterates all the row values from the equivalent data.frame
+  for (i in 1:length(df[[1]])){
+    
+    # Since this class was designed to work on S3 objects of the form such as 'hnew' data.frame, the number of columns/lists is fixed.
+    # The vector below takes preset string inputs such as 'Year' and an appropriate position in the list of lists for a specific numerical value. Eg. 'Year:' '2002'.
+    # The paste function presents the output as 'Year: 2002' instead of 'Year:' '2002'.
+    # Vector v holds a list of all values and their respective category.
+    v<-c(paste(c('Year:',df[[1]][i]),collapse = ' '),
+      paste(c('National:',df[[2]][i]),collapse = ' '),
+      paste(c('Dublin:',df[[3]][i]),collapse = ' '),
+      paste(c('Cork:',df[[4]][i]),collapse = ' '),
+      paste(c('Galway:',df[[5]][i]),collapse = ' '),
+      paste(c('Limerick:',df[[6]][i]),collapse = ' '),
+      paste(c('Waterford:',df[[7]][i]),collapse = ' '),
+      paste(c(' ','\n')))
+    
+    # Vector s is a list of lists where each list entry is the cat() of the list v. cat() presents the output as Year: 1978 National: 24082... instead of 'Year: 1978' 'National: 24082'...
+    # This modification was done to present the data in a more compact and readable way but it could be changed.
+    s[[length(s)+1]]<-cat(v)
+    
+  }
+  s
+}
+
+# Below is a comparison of the different print functions for each object class. ('housing' vs 'data.frame')
+print(hnews3)
+print(hnew)
+
+```
+
+
+#### Summary Method
+
+To keep consistency and comparability, mean, minimum and maximum of the data will be calculated and then presented with a custom 'summary' function. This function will be compared to the data.frame version of the function for the summary of the data. 
+
+``` {r s3m}
+
+summary.housing <- function(df){
+  
+  # Cycling through all the summary metrics
+  
+  for (i in c('Mean','Minimum','Maximum')){
+    
+    if (i=='Mean'){
+        # Calculates the mean of each list within a list of a corresponding category (year,national...) and presents it in a similar fashion as in the .print function
+        v<-cat(c(paste(c(i,' of the data: \n')),
+      paste(c('Year:',round(mean(unlist(hnews3$`Year:`)),2),collapse = ' ')),
+      paste(c('National:',round(mean(unlist(hnews3$National)),2),collapse = ' ')),
+      paste(c('Dublin:',round(mean(unlist(hnews3$`Dublin `)),2),collapse = ' ')),
+      paste(c('Cork:',round(mean(unlist(hnews3$Cork)),2),collapse = ' ')),
+      paste(c('Galway:',round(mean(unlist(hnews3$Galway)),2),collapse = ' ')),
+      paste(c('Limerick:',round(mean(unlist(hnews3$Limerick)),2),collapse = ' ')),
+      paste(c('Waterford:',round(mean(unlist(hnews3$Waterford)),2),collapse = ' ')),
+      paste(c(' ','\n'))))
+      
+    }
+    
+    if (i=='Minimum'){
+        # Calculates the minimum of each list within a list of a corresponding category (year,national...) and presents it in a similar fashion as in the .print function
+        v<-cat(c(paste(c('\n',i,' of the data: \n')),
+      paste(c('Year:',min(hnews3$`Year:`),collapse = ' ')),
+      paste(c('National:',min(hnews3$National),collapse = ' ')),
+      paste(c('Dublin:',min(hnews3$`Dublin `),collapse = ' ')),
+      paste(c('Cork:',min(hnews3$Cork),collapse = ' ')),
+      paste(c('Galway:',min(hnews3$Galway),collapse = ' ')),
+      paste(c('Limerick:',min(hnews3$Limerick),collapse = ' ')),
+      paste(c('Waterford:',min(hnews3$Waterford),collapse = ' ')),
+      paste(c(' ','\n'))))
+      
+      
+    }
+    
+      if (i=='Maximum'){
+        # Calculates the maximum of each list within a list of a corresponding category (year,national...) and presents it in a similar fashion as in the .print function
+        v<-cat(c(paste(c('\n',i,' of the data: \n')),
+      paste(c('Year:',max(hnews3$`Year:`),collapse = ' ')),
+      paste(c('National:',max(hnews3$National),collapse = ' ')),
+      paste(c('Dublin:',max(hnews3$`Dublin `),collapse = ' ')),
+      paste(c('Cork:',max(hnews3$Cork),collapse = ' ')),
+      paste(c('Galway:',max(hnews3$Galway),collapse = ' ')),
+      paste(c('Limerick:',max(hnews3$Limerick),collapse = ' ')),
+      paste(c('Waterford:',max(hnews3$Waterford),collapse = ' ')),
+      paste(c(' ','\n'))))
+      
+      
+    }
+  }
+  v
+}
+
+summary(hnews3)
+summary(hnew)
+
+```
+
+#### Conclusion
+
+As seen from the examples above, the custom methods for print and summary give satisfactory results when compared to the default methods used by data.frame objects. The methods above created a print and a summary function for the specific S3 class and show the original data in the print function while the summary displays statistical quantitines such as mean, minimum and maximum. The list of the statistical quantities can be further extended in the same manner as it was done for the already mentioned quantities.
+
+
+
+
+
+
+
+
+
+
+
